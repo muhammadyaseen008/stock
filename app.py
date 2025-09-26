@@ -38,31 +38,43 @@ st.title("📈 Stock Market Trend Prediction - LSTM Model")
 st.write("Predict future stock prices for any ticker using a pre-trained LSTM deep learning model.")
 
 # ------------------------------
-# User input: stock ticker
+# User Inputs
 # ------------------------------
 ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, TSLA, POWERGRID.NS):", "AAPL")
 days_to_predict = st.number_input("Enter number of days to predict:", min_value=1, max_value=30, value=5)
 
+# Option to upload CSV if Yahoo Finance fails
+uploaded_file = st.file_uploader("Or upload a CSV file with stock data", type=["csv"])
+
+# ------------------------------
 # Load LSTM model
+# ------------------------------
 model = load_model("stock_dl_model.h5")
 
 # ------------------------------
-# Download stock data
+# Load stock data
 # ------------------------------
 start = dt.datetime(2000, 1, 1)
 end = dt.datetime.today()
 
-try:
-    data = yf.download(ticker, start, end)
-except Exception as e:
-    st.error(f"Error downloading data: {e}")
-    st.stop()
+if uploaded_file:
+    data = pd.read_csv(uploaded_file)
+    st.success("CSV file loaded successfully!")
+else:
+    try:
+        data = yf.download(ticker, start, end, progress=False)
+    except Exception as e:
+        st.error(f"Error downloading data: {e}")
+        st.stop()
 
-if data.empty:
-    st.error("No data found for this ticker.")
-    st.stop()
+    if data.empty:
+        st.error("No data found for this ticker. Please check the ticker or upload a CSV.")
+        st.stop()
 
-data = data.sort_index()
+data = data.reset_index()
+data = data.sort_values('Date')
+
+# Show last 10 rows
 st.subheader(f"Showing last 10 rows for {ticker}")
 st.write(data.tail(10))
 
@@ -107,6 +119,7 @@ else:
     for _ in range(days_to_predict):
         pred_price = model.predict(x_input, verbose=0)
         predicted_prices.append(pred_price[0][0])
+        # Reshape prediction to 3D for next input
         pred_price_3d = pred_price.reshape(1,1,1)
         x_input = np.append(x_input[:,1:,:], pred_price_3d, axis=1)
 
